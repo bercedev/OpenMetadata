@@ -1619,15 +1619,6 @@ jobs:
           swap-storage: true
           docker-images: false
 
-      - name: Restore Maven dependencies
-        if: ${{ matrix.lane == 'visual' }}
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
       - name: Prepare the own-environment inputs
         if: ${{ contains(fromJSON('["visual","rdf"]'), matrix.lane) }}
         env:
@@ -1635,10 +1626,8 @@ jobs:
           DISTRIBUTION: ${{ steps.fast-inputs.outputs.distribution }}
           INGESTION_IMAGE: ${{ steps.fast-inputs.outputs.ingestion_image }}
         run: |
-          if [[ "$PW_SHARD_LANE" == "rdf" ]]; then
-            mkdir -p openmetadata-dist/target
-            cp "$DISTRIBUTION" openmetadata-dist/target/
-          fi
+          mkdir -p openmetadata-dist/target
+          cp "$DISTRIBUTION" openmetadata-dist/target/
           if ! command -v zstd >/dev/null 2>&1; then
             sudo apt-get update
             sudo apt-get install -y zstd
@@ -1654,7 +1643,7 @@ jobs:
         uses: ./.github/actions/setup-openmetadata-test-environment
         with:
           python-version: "3.10"
-          args: "-d mysql"
+          args: "-d mysql -s true"
           ingestion_dependency: "playwright"
           install-test-dependencies: "false"
 
