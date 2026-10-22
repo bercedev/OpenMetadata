@@ -1695,7 +1695,7 @@ public class PipelineRepository extends EntityRepository<Pipeline> {
     String tierFilterSql =
         tier != null
             ? "AND EXISTS (SELECT 1 FROM tag_usage tu WHERE tu.targetFQNHash = pe.fqnHash AND tu.tagFQN = '"
-                + tier.replace("'", "''")
+                + escapeSqlStringLiteral(tier)
                 + "')"
             : "";
 
@@ -1741,7 +1741,7 @@ public class PipelineRepository extends EntityRepository<Pipeline> {
       }
       mysqlStatusFilter +=
           "ORDER BY eets_filter.timestamp DESC LIMIT 1) = '"
-              + statusFilter.replace("'", "''")
+              + escapeSqlStringLiteral(statusFilter)
               + "'";
     } else if (statusFilter != null) {
       // Case 2: Status only = check overall latest status
@@ -1751,7 +1751,7 @@ public class PipelineRepository extends EntityRepository<Pipeline> {
               + "WHERE eets_filter.entityFQNHash = pe.fqnHash "
               + "  AND eets_filter.extension = 'pipeline.pipelineStatus' "
               + "ORDER BY eets_filter.timestamp DESC LIMIT 1) = '"
-              + statusFilter.replace("'", "''")
+              + escapeSqlStringLiteral(statusFilter)
               + "'";
     } else if (startTs != null || endTs != null) {
       // Case 3: Timestamps only = check if pipeline ran in time range
@@ -1785,7 +1785,7 @@ public class PipelineRepository extends EntityRepository<Pipeline> {
       }
       postgresStatusFilter +=
           "ORDER BY eets_filter.timestamp DESC LIMIT 1) = '"
-              + statusFilter.replace("'", "''")
+              + escapeSqlStringLiteral(statusFilter)
               + "'";
     } else if (statusFilter != null) {
       // Case 2: Status only = check overall latest status
@@ -1795,7 +1795,7 @@ public class PipelineRepository extends EntityRepository<Pipeline> {
               + "WHERE eets_filter.entityFQNHash = pe.fqnHash "
               + "  AND eets_filter.extension = 'pipeline.pipelineStatus' "
               + "ORDER BY eets_filter.timestamp DESC LIMIT 1) = '"
-              + statusFilter.replace("'", "''")
+              + escapeSqlStringLiteral(statusFilter)
               + "'";
     } else if (startTs != null || endTs != null) {
       // Case 3: Timestamps only = check if pipeline ran in time range
@@ -2467,6 +2467,18 @@ public class PipelineRepository extends EntityRepository<Pipeline> {
         totalFailed);
   }
 
+  /**
+   * Renders a user-supplied value as a SQL string-literal body. Backslashes are doubled before
+   * quotes so a trailing backslash cannot consume the closing delimiter on engines that honour
+   * backslash escapes; apostrophes are doubled as before.
+   */
+  private static String escapeSqlStringLiteral(String value) {
+    if (value == null) {
+      return null;
+    }
+    return value.replace("\\", "\\\\").replace("'", "''");
+  }
+
   private String buildPipelineFqnFilter(String pipelineFqn) {
     if (pipelineFqn != null && !pipelineFqn.isEmpty()) {
       String fqnHash = FullyQualifiedName.buildHash(pipelineFqn);
@@ -2477,7 +2489,7 @@ public class PipelineRepository extends EntityRepository<Pipeline> {
 
   private String buildServiceTypeFilter(String serviceType) {
     if (serviceType != null && !serviceType.isEmpty()) {
-      String safeServiceType = serviceType.replace("'", "''");
+      String safeServiceType = escapeSqlStringLiteral(serviceType);
       String filter =
           "AND JSON_UNQUOTE(JSON_EXTRACT(pe.json, '$.serviceType')) = '" + safeServiceType + "'";
       LOG.debug("buildServiceTypeFilter: input='{}', filter='{}'", serviceType, filter);
@@ -2489,7 +2501,7 @@ public class PipelineRepository extends EntityRepository<Pipeline> {
 
   private String buildMysqlStatusFilter(String status) {
     if (status != null && !status.isEmpty()) {
-      String safeStatus = status.replace("'", "''");
+      String safeStatus = escapeSqlStringLiteral(status);
       return "AND eets.json IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(eets.json, '$.executionStatus')) = '"
           + safeStatus
           + "'";
@@ -2499,7 +2511,7 @@ public class PipelineRepository extends EntityRepository<Pipeline> {
 
   private String buildPostgresStatusFilter(String status) {
     if (status != null && !status.isEmpty()) {
-      String safeStatus = status.replace("'", "''");
+      String safeStatus = escapeSqlStringLiteral(status);
       return "AND eets.json IS NOT NULL AND eets.json->>'executionStatus' = '" + safeStatus + "'";
     }
     return "";
@@ -2582,7 +2594,7 @@ public class PipelineRepository extends EntityRepository<Pipeline> {
 
   private String buildTierFilter(String tier) {
     if (tier != null && !tier.isEmpty()) {
-      String safeTier = tier.replace("'", "''");
+      String safeTier = escapeSqlStringLiteral(tier);
       return "AND EXISTS (SELECT 1 FROM tag_usage tu "
           + "WHERE tu.targetFQNHash = pe.fqnHash "
           + "AND tu.tagFQN = '"
@@ -2594,7 +2606,7 @@ public class PipelineRepository extends EntityRepository<Pipeline> {
 
   private String buildServiceFilter(String service) {
     if (service != null && !service.isEmpty()) {
-      String safeService = service.replace("'", "''");
+      String safeService = escapeSqlStringLiteral(service);
       return "AND EXISTS (SELECT 1 FROM entity_relationship er "
           + "JOIN pipeline_service_entity pse ON er.fromId = pse.id "
           + "WHERE er.toId = pe.id "
